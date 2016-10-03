@@ -1,14 +1,15 @@
-# -*- mode: ruby -*-
-# vi: set ft=ruby :
-
-VAGRANTFILE_API_VERSION = "2"
-
-Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+Vagrant.configure(2) do |config|
+  config.vm.box = "ericmann/trusty64"
 
   config.vm.hostname = "smart-on-fhir"
 
-  config.vm.box = "ubuntu/trusty64"
-  config.vm.box_url = "http://cloud-images.ubuntu.com/vagrant/trusty/current/trusty-server-cloudimg-amd64-vagrant-disk1.box"
+  config.vm.provider "virtualbox" do |vb|
+    vb.memory = "1024"
+  end
+
+  config.vm.provider "hyperv" do |hv|
+    hv.memory = 1024
+  end
 
   config.vm.provider :virtualbox do |vb|
     vb.customize ["modifyvm", :id, "--memory", "2048"]
@@ -24,18 +25,34 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 #  config.vm.network :forwarded_port, guest: 9999, host: 9999
   config.vm.network "private_network", ip: "192.168.50.4"
   
-  config.vm.provision "fix-no-tty", type: "shell" do |s|
-    s.privileged = false
-    s.inline = "sudo sed -i '/tty/!s/mesg n/tty -s \\&\\& mesg n/' /root/.profile"
-  end
-  
-  config.vm.provision "shell", path: "provisioning/fetch-templates.sh", args: ["/vagrant/provisioning/roles/common/templates/config","v0.1.0"]
+  config.vm.provision "shell", inline: <<-SHELL
+    sudo apt-get update
+    sudo apt-get install -y vim
+    sudo apt-get install -y git
+    sudo apt-get install -y curl python-pycurl python-pip python-yaml python-paramiko python-jinja2
+    sudo pip install ansible==1.8.2
+  SHELL
 
-  config.vm.provision "ansible" do |ansible|
-    #ansible.verbose = "vvvv"
-    #ansible.tags=["apps"]
-    
-    ansible.playbook = "provisioning/smart-on-fhir-servers.yml"
-  end
+  config.vm.provision "shell", privileged: false, inline: <<-SHELL
+    set -e
+    # setting up dotfiles
+    ln -s /vagrant/vim/vimrc ~/.vimrc
+    (cd /vagrant/vim && ./setup-vim.sh)
+    ln -s /vagrant/git/gitconfig ~/.gitconfig
+    echo "Finished with dotfiles setup"
+  SHELL
+
+  config.vm.provision "shell", privileged: false, inline: <<-SHELL
+    (cd /vagrant/tmux && ./setup-tmux.sh)
+    ln -s /vagrant/tmux/tmux.conf ~/.tmux.conf
+    echo "export TERM=xterm-256color" >> ~/.bashrc
+    echo "Finished tmux setup"
+  SHELL
+
+  config.vm.provision "shell", privileged: false, inline: <<-SHELL
+    (cd /vagrant/provisioning && sudo ansible-playbook -c local -i 'localhost,' -vvvv smart-on-fhir-servers.yml)
+    echo "Set up smart-on-fhir servers"
+  SHELL
 
 end
+
