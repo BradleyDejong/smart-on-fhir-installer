@@ -49,10 +49,11 @@ Vagrant.configure(2) do |config|
     echo "Finished tmux setup"
   SHELL
 
-  config.vm.provision "shell", privileged: false, inline: <<-SHELL
-    (cd /vagrant/provisioning && sudo ansible-playbook -c local -i 'localhost,' -vvvv smart-on-fhir-servers.yml)
-    echo "Set up smart-on-fhir servers"
-  SHELL
+  #config.vm.provision "shell", privileged: false, inline: <<-SHELL
+    #cp -r /vagrant/provisioning ~/provisioning
+    #(cd ~/provisioning && sudo ansible-playbook -c local -i 'localhost,' -vvvv smart-on-fhir-servers.yml)
+    #echo "Set up smart-on-fhir servers"
+  #SHELL
 
 end
 
